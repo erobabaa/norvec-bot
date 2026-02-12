@@ -1,34 +1,49 @@
 const express = require("express");
 const axios = require("axios");
+const cheerio = require("cheerio");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-app.get("/", async (req, res) => {
+app.get("/", (req, res) => {
+  res.send("Norveç Bot Çalışıyor");
+});
+
+app.get("/is-ilanlari", async (req, res) => {
   try {
-    const response = await axios.get(
-      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?search=kokk",
-      {
-        headers: {
-          "User-Agent": "Mozilla/5.0"
-        }
+    const url = "https://arbeidsplassen.nav.no/stillinger?q=kokk&v=5";
+
+    const { data } = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0"
       }
-    );
+    });
 
-    const jobs = response.data.content.slice(0, 10).map(job => ({
-      title: job.title,
-      company: job.employer?.name,
-      location: job.location,
-      link: job.link
-    }));
+    const $ = cheerio.load(data);
+    const ilanlar = [];
 
-    res.json(jobs);
+    $(".ads__unit").each((i, el) => {
+      const baslik = $(el).find("h2").text().trim();
+      const firma = $(el).find(".ads__unit__employer").text().trim();
+      const link = "https://arbeidsplassen.nav.no" + $(el).find("a").attr("href");
+
+      if (baslik) {
+        ilanlar.push({
+          baslik,
+          firma,
+          link
+        });
+      }
+    });
+
+    res.json(ilanlar.slice(0, 10));
   } catch (err) {
-    console.log(err.message);
-    res.send("Hata oluştu");
+    console.log(err);
+    res.send("Hata Oluştu");
   }
 });
 
+const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log("Bot çalışıyor");
+  console.log("Bot çalışıyor " + PORT);
 });
