@@ -14,7 +14,7 @@ app.get("/health", (req, res) => {
 app.get("/is-ilanlari", async (req, res) => {
   try {
     const url =
-      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?size=10&occupation=kokk";
+      "https://arbeidsplassen.nav.no/api/v1/ads/search?size=10&q=kokk";
 
     const response = await axios.get(url, {
       headers: {
