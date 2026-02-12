@@ -7,18 +7,24 @@ const PORT = process.env.PORT || 3000;
 app.get("/", async (req, res) => {
   try {
     const response = await axios.get(
-      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?search=kokk"
+      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?search=kokk",
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0"
+        }
+      }
     );
 
     const jobs = response.data.content.slice(0, 10).map(job => ({
       title: job.title,
-      company: job.employer.name,
+      company: job.employer?.name,
       location: job.location,
       link: job.link
     }));
 
     res.json(jobs);
   } catch (err) {
+    console.log(err.message);
     res.send("Hata oluştu");
   }
 });
