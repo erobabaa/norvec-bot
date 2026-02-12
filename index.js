@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const axios = require("axios");
 const cheerio = require("cheerio");
@@ -6,18 +8,19 @@ const cron = require("node-cron");
 
 const app = express();
 
-const TOKEN = process.env.TOKEN;       // Railway: TOKEN
-const CHAT_ID = process.env.CHAT_ID;   // Railway: CHAT_ID
+const TOKEN = process.env.TOKEN;       // Local: .env / Railway: Variables
+const CHAT_ID = process.env.CHAT_ID;   // Local: .env / Railway: Variables
+
+const SEARCH_URL = "https://arbeidsplassen.nav.no/stillinger?q=kokk";
+const MAX_PAGES = Number(process.env.MAX_PAGES || 5);
+const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "*/30 * * * *";
 
 if (!TOKEN) console.log("HATA: TOKEN env yok");
 if (!CHAT_ID) console.log("HATA: CHAT_ID env yok");
 
 const bot = TOKEN ? new TelegramBot(TOKEN, { polling: true }) : null;
 
-const SEARCH_URL = "https://arbeidsplassen.nav.no/stillinger?q=kokk";
-const MAX_PAGES = Number(process.env.MAX_PAGES || 5);
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "*/30 * * * *"; // 30 dk
-
+// Railway restart olursa sıfırlanır (istersen sonra DB ekleriz)
 const seen = new Set();
 
 app.get("/", (req, res) => res.send("Norveç Bot Çalışıyor"));
@@ -33,6 +36,7 @@ function includesAny(text, phrases) {
 function analyzeJobText(rawText) {
   const t = normalizeText(rawText);
 
+  // İngilizce mümkün
   const englishHints = [
     "english",
     "engelsk",
@@ -41,8 +45,10 @@ function analyzeJobText(rawText) {
     "work language english",
     "arbeidsspråk engelsk",
     "kommunikasjon på engelsk",
+    "international environment",
   ];
 
+  // Norveççe zorunlu
   const norwegianRequiredHints = [
     "må snakke norsk",
     "maa snakke norsk",
@@ -50,14 +56,21 @@ function analyzeJobText(rawText) {
     "norsk språk",
     "norsk muntlig og skriftlig",
     "gode norskkunnskaper",
+    "krever norsk",
     "norwegian required",
   ];
 
+  // Konaklama VAR
   const accommodationYes = [
+    // EN
     "accommodation",
+    "accommodation provided",
     "housing provided",
     "staff housing",
     "room included",
+    "we offer accommodation",
+    "lodging",
+    // NO
     "bolig tilbys",
     "vi tilbyr bolig",
     "bolig inkludert",
@@ -65,11 +78,17 @@ function analyzeJobText(rawText) {
     "hybel",
     "hybel tilbys",
     "overnatting",
+    "bosted",
+    "bolig", // genel
   ];
 
+  // Konaklama YOK (daha güçlü)
   const accommodationNo = [
+    // EN
     "no accommodation",
     "accommodation not included",
+    "must arrange housing yourself",
+    // NO
     "ingen bolig",
     "bolig ikke inkludert",
     "må ordne bolig selv",
@@ -123,12 +142,10 @@ function extractJobLinksFromListPage(html) {
 function extractNextPageUrl(html) {
   const $ = cheerio.load(html);
   const relNext = $("a[rel='next']").attr("href");
-  if (relNext) {
-    return relNext.startsWith("http")
-      ? relNext
-      : "https://arbeidsplassen.nav.no" + relNext;
-  }
-  return null;
+  if (!relNext) return null;
+  return relNext.startsWith("http")
+    ? relNext
+    : "https://arbeidsplassen.nav.no" + relNext;
 }
 
 async function analyzeJobDetail(jobUrl) {
@@ -160,9 +177,11 @@ async function crawlAndNotify({ onlyNew = true } = {}) {
 
   while (pageUrl && pages < MAX_PAGES) {
     pages += 1;
+
     const html = await fetchHtml(pageUrl);
     const links = extractJobLinksFromListPage(html);
     links.forEach((l) => discovered.add(l));
+
     pageUrl = extractNextPageUrl(html);
     if (!pageUrl) break;
   }
@@ -174,6 +193,7 @@ async function crawlAndNotify({ onlyNew = true } = {}) {
 
     try {
       const info = await analyzeJobDetail(link);
+
       const msg =
         `🍳 ${info.title}\n` +
         `Dil: ${info.dil}\n` +
@@ -182,10 +202,13 @@ async function crawlAndNotify({ onlyNew = true } = {}) {
 
       await sendMsg(msg);
       seen.add(link);
-    } catch {}
+    } catch {
+      // Detayda hata olursa geç
+    }
   }
 }
 
+/* Telegram komutları */
 if (bot) {
   bot.onText(/\/start/, async (msg) => {
     if (String(msg.chat.id) !== String(CHAT_ID)) return;
@@ -201,7 +224,7 @@ if (bot) {
 
   bot.onText(/\/durum/, async (msg) => {
     if (String(msg.chat.id) !== String(CHAT_ID)) return;
-    bot.sendMessage(CHAT_ID, `Cache: ${seen.size}`);
+    bot.sendMessage(CHAT_ID, `Cache: ${seen.size}\nMAX_PAGES: ${MAX_PAGES}`);
   });
 }
 
