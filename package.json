@@ -4,7 +4,7 @@
   "description": "Telegram controlled job bot",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node index.js"
   },
   "author": "",
   "license": "ISC",
