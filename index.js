@@ -1,6 +1,5 @@
 const express = require("express");
 const axios = require("axios");
-const cheerio = require("cheerio");
 
 const app = express();
 
@@ -8,42 +7,44 @@ app.get("/", (req, res) => {
   res.send("Norveç Bot Çalışıyor");
 });
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.get("/is-ilanlari", async (req, res) => {
   try {
-    const url = "https://arbeidsplassen.nav.no/stillinger?q=kokk&v=5";
+    const url =
+      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?size=10&q=kokk";
 
-    const { data } = await axios.get(url, {
+    const response = await axios.get(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
+        "User-Agent": "Mozilla/5.0",
+        Accept: "application/json",
+      },
+      timeout: 15000,
     });
 
-    const $ = cheerio.load(data);
-    const ilanlar = [];
+    const data = response.data || {};
+    const list = data.content || [];
 
-    $(".ads__unit").each((i, el) => {
-      const baslik = $(el).find("h2").text().trim();
-      const firma = $(el).find(".ads__unit__employer").text().trim();
-      const link = "https://arbeidsplassen.nav.no" + $(el).find("a").attr("href");
+    const ilanlar = list.map((ad) => ({
+      baslik: ad.heading || "Başlık Yok",
+      firma: ad.employer?.name || "Bilinmiyor",
+      sehir: ad.locationList?.[0]?.city || "Belirtilmemiş",
+      link:
+        "https://arbeidsplassen.nav.no/stillinger/stilling/" +
+        (ad.uuid || ""),
+    }));
 
-      if (baslik) {
-        ilanlar.push({
-          baslik,
-          firma,
-          link
-        });
-      }
-    });
-
-    res.json(ilanlar.slice(0, 10));
+    res.json(ilanlar);
   } catch (err) {
-    console.log(err);
-    res.send("Hata Oluştu");
+    console.log("API HATA:", err.message);
+    res.json([]); // HATA YAZMAZ ARTIK
   }
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("Bot çalışıyor " + PORT);
 });
