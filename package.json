@@ -9,6 +9,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^5.2.1",
     "node-telegram-bot-api": "^0.66.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erobabaa/norvec-bot.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/erobabaa/norvec-bot/issues"
+  },
+  "homepage": "https://github.com/erobabaa/norvec-bot#readme"
 }
