@@ -14,7 +14,7 @@ app.get("/health", (req, res) => {
 app.get("/is-ilanlari", async (req, res) => {
   try {
     const url =
-      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?size=10&q=kokk";
+      "https://arbeidsplassen.nav.no/public-feed/api/v1/ads?size=10&occupation=kokk";
 
     const response = await axios.get(url, {
       headers: {
@@ -24,8 +24,7 @@ app.get("/is-ilanlari", async (req, res) => {
       timeout: 15000,
     });
 
-    const data = response.data || {};
-    const list = data.content || [];
+    const list = response.data?.content || [];
 
     const ilanlar = list.map((ad) => ({
       baslik: ad.heading || "Başlık Yok",
@@ -39,7 +38,7 @@ app.get("/is-ilanlari", async (req, res) => {
     res.json(ilanlar);
   } catch (err) {
     console.log("API HATA:", err.message);
-    res.json([]); // HATA YAZMAZ ARTIK
+    res.json([]);
   }
 });
 
