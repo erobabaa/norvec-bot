@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const cheerio = require("cheerio");
 
 const app = express();
 
@@ -14,30 +15,32 @@ app.get("/health", (req, res) => {
 app.get("/is-ilanlari", async (req, res) => {
   try {
     const url =
-      "https://arbeidsplassen.nav.no/api/v1/ads/search?size=10&q=kokk";
+      "https://arbeidsplassen.nav.no/stillinger?q=kokk";
 
-    const response = await axios.get(url, {
+    const { data } = await axios.get(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "application/json",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
       timeout: 15000,
     });
 
-    const list = response.data?.content || [];
+    const $ = cheerio.load(data);
+    const ilanlar = [];
 
-    const ilanlar = list.map((ad) => ({
-      baslik: ad.heading || "Başlık Yok",
-      firma: ad.employer?.name || "Bilinmiyor",
-      sehir: ad.locationList?.[0]?.city || "Belirtilmemiş",
-      link:
-        "https://arbeidsplassen.nav.no/stillinger/stilling/" +
-        (ad.uuid || ""),
-    }));
+    $("a[href*='/stillinger/stilling/']").each((i, el) => {
+      const baslik = $(el).text().trim();
+      const link =
+        "https://arbeidsplassen.nav.no" + $(el).attr("href");
 
-    res.json(ilanlar);
+      if (baslik && baslik.length > 5) {
+        ilanlar.push({ baslik, link });
+      }
+    });
+
+    res.json(ilanlar.slice(0, 10));
   } catch (err) {
-    console.log("API HATA:", err.message);
+    console.log("SCRAPE HATA:", err.message);
     res.json([]);
   }
 });
